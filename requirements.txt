@@ -1,2 +1,7 @@
-# No specific Python packages needed for FFMPEG operations
-# FFMPEG must be installed separately and available in the system PATH
+# Primary requirements
+ffmpeg-python==0.2.0  # Python wrapper for FFMPEG
+tqdm==4.66.1          # Progress bar for long operations
+colorama==0.4.6       # Colored terminal output
+
+# Optional - will be used if available
+imageio-ffmpeg==0.4.8  # Alternative FFMPEG interface that can download binaries

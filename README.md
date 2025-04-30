@@ -2,23 +2,33 @@
 
 A command-line tool for segmenting videos into specified lengths and rescaling them to 640x480 resolution.
 
+![Example Screenshot](https://via.placeholder.com/800x400?text=Video+Segmentor+CLI)
+
 ## Features
 
 - Segment videos into clips of specified length (in seconds)
 - Automatically rescale segments to 640x480 resolution
 - Preserve original video format and codec
 - Organized output with timestamp-based naming
+- Real-time progress bars and colorized terminal output
+- Detailed video information display
+- Automatic FFMPEG installation (fallback to Python-based alternatives)
 
 ## Requirements
 
 - Python 3.6 or higher
-- FFMPEG installed and available in your system PATH
+- FFMPEG (one of the following options):
+  - System-wide FFMPEG installation (recommended for best performance)
+  - Python packages will be installed as fallbacks via requirements.txt
 
-**Note:** This tool requires FFMPEG to be installed separately. It is not included in the installation script.
+**Note about FFMPEG:**
+The tool will first try to use system-installed FFMPEG. If not found, it will automatically fall back to Python-based alternatives:
+1. First fallback: `ffmpeg-python` package
+2. Second fallback: `imageio-ffmpeg` package (can download binaries automatically)
 
-You can download FFMPEG from: https://ffmpeg.org/download.html
-
-After installation, make sure FFMPEG is added to your system PATH.
+For best performance, we still recommend installing FFMPEG system-wide:
+- Download from: https://ffmpeg.org/download.html
+- Make sure to add it to your system PATH
 
 ## Installation
 
@@ -46,6 +56,15 @@ After installation, make sure FFMPEG is added to your system PATH.
    - Original segments in the specified length
    - Rescaled segments (640x480) with "_640" added to the filename
 
+### Command-line Options
+
+```
+segmentor.bat path\to\video.mp4 segment_length_in_seconds [options]
+```
+
+Available options:
+- `--no-color`: Disable colored terminal output
+
 ## Output Format
 
 The segmented files will follow this naming pattern:
@@ -56,6 +75,14 @@ Where:
 - `XXX` is the segment number (starting from 000)
 - `YYYYMMDD_HHMMSS` is the timestamp when the segmentation was performed
 - `.ext` is the original file extension
+
+## Progress Tracking
+
+The CLI provides detailed progress information during processing:
+- Video information (duration, resolution, bitrate)
+- Real-time progress bars for segmentation and rescaling
+- Colorized output for better readability
+- Summary statistics after completion (file sizes, processing time)
 
 ## Examples
 
@@ -74,6 +101,13 @@ This will:
    - `my_video_640_segment000_20230405_123456.mp4`
    - `my_video_640_segment001_20230405_123456.mp4`
    - ...
+
+### Example 2: Segment a video with disabled color output
+```
+segmentor.bat C:\Videos\my video.mp4 60 --no-color
+```
+
+This will process the video with 60-second segments and display output without colors (useful for terminals that don't support ANSI colors).
 
 ## Repository
 
