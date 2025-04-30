@@ -1,0 +1,2 @@
+# No specific Python packages needed for FFMPEG operations
+# FFMPEG must be installed separately and available in the system PATH
