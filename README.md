@@ -45,6 +45,8 @@ For best performance, we still recommend installing FFMPEG system-wide:
 
 ## Usage
 
+### Single File Mode
+
 1. Run the segmentor script with the path to your video file and the desired segment length in seconds:
    ```
    segmentor.bat path\to\your\video.mp4 30
@@ -56,10 +58,29 @@ For best performance, we still recommend installing FFMPEG system-wide:
    - Original segments in the specified length
    - Rescaled segments (640x480) with "_640" added to the filename
 
+### Batch Directory Mode
+
+1. Run the segmentor script with the `--dir` flag to process all MP4 files in a directory:
+   ```
+   segmentor.bat --dir path\to\your\directory 30
+   ```
+   This will segment all MP4 files found in the directory into 30-second clips.
+
+2. The script will create:
+   - A timestamped batch output directory (e.g., `batch_output_20231205_143022`)
+   - Individual folders for each video (same as single file mode)
+   - A batch summary file with processing results and statistics
+
 ### Command-line Options
 
+**Single File Mode:**
 ```
 segmentor.bat path\to\video.mp4 segment_length_in_seconds [options]
+```
+
+**Batch Directory Mode:**
+```
+segmentor.bat --dir path\to\directory segment_length_in_seconds [options]
 ```
 
 Available options:
@@ -102,12 +123,45 @@ This will:
    - `my_video_640_segment001_20230405_123456.mp4`
    - ...
 
-### Example 2: Segment a video with disabled color output
+### Example 2: Batch process multiple videos
+```
+segmentor.bat --dir C:\Videos\batch_folder 30
+```
+
+This will:
+1. Scan `C:\Videos\batch_folder` for all MP4 files
+2. Create a timestamped batch output directory (e.g., `batch_output_20231205_143022`)
+3. Process each video into 30-second segments
+4. Generate individual folders for each video within the batch directory
+5. Create a batch summary file with processing statistics
+
+### Example 3: Segment a video with disabled color output
 ```
 segmentor.bat C:\Videos\my video.mp4 60 --no-color
 ```
 
 This will process the video with 60-second segments and display output without colors (useful for terminals that don't support ANSI colors).
+
+### Example 4: Batch process with disabled color output
+```
+segmentor.bat --dir C:\Videos\batch_folder 45 --no-color
+```
+
+This will batch process all MP4 files in the directory with 45-second segments and disable colored terminal output.
+
+## Batch Processing Features
+
+When using batch directory mode (`--dir`), you get additional features:
+
+- **Robust error handling**: If one video fails, processing continues with the remaining videos
+- **Progress tracking**: Shows overall batch progress (e.g., "Processing video 3 of 7") plus individual video progress
+- **Comprehensive reporting**: Creates a detailed batch summary file with:
+  - Total processing time
+  - Success/failure counts
+  - List of successfully processed videos
+  - List of failed videos (if any)
+- **Organized output**: All results are contained in a timestamped batch directory
+- **Parallel-friendly**: Each video gets its own subdirectory, preventing file conflicts
 
 ## Repository
 

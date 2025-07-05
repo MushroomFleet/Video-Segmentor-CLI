@@ -28,19 +28,19 @@ def print_header():
 
 def print_success(message):
     """Print a success message"""
-    print(f"{Fore.GREEN}✓ {message}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}[OK] {message}{Style.RESET_ALL}")
 
 def print_info(message):
     """Print an info message"""
-    print(f"{Fore.BLUE}ℹ {message}{Style.RESET_ALL}")
+    print(f"{Fore.BLUE}[INFO] {message}{Style.RESET_ALL}")
 
 def print_warning(message):
     """Print a warning message"""
-    print(f"{Fore.YELLOW}⚠ {message}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}[WARN] {message}{Style.RESET_ALL}")
 
 def print_error(message):
     """Print an error message"""
-    print(f"{Fore.RED}✗ {message}{Style.RESET_ALL}")
+    print(f"{Fore.RED}[ERROR] {message}{Style.RESET_ALL}")
 
 def print_step(step_number, total_steps, description):
     """Print a step indicator"""
@@ -442,10 +442,197 @@ def rescale_segments(segmented_files, output_dir):
     
     return rescaled_files
 
+def find_mp4_files(directory):
+    """Find all .mp4 files in the specified directory"""
+    mp4_files = []
+    if not os.path.isdir(directory):
+        print_error(f"Directory '{directory}' does not exist.")
+        return mp4_files
+    
+    print_info(f"Scanning directory: {directory}")
+    with tqdm(desc="Finding MP4 files", unit="files") as pbar:
+        for file in os.listdir(directory):
+            if file.lower().endswith('.mp4'):
+                full_path = os.path.join(directory, file)
+                if os.path.isfile(full_path):
+                    mp4_files.append(full_path)
+                    pbar.update(1)
+    
+    print_success(f"Found {len(mp4_files)} MP4 files.")
+    return mp4_files
+
+def process_single_video(input_file, segment_length):
+    """Process a single video file (extracted from main logic)"""
+    # Validate input file
+    if not os.path.isfile(input_file):
+        print_error(f"The input file '{input_file}' does not exist.")
+        return False
+    
+    # Display input information
+    input_size_mb = os.path.getsize(input_file) / (1024*1024)
+    
+    print(f"\n{Fore.CYAN}Input Information:{Style.RESET_ALL}")
+    print(f"  {Fore.CYAN}File:{Style.RESET_ALL} {input_file}")
+    print(f"  {Fore.CYAN}Size:{Style.RESET_ALL} {input_size_mb:.2f} MB")
+    print(f"  {Fore.CYAN}Segment length:{Style.RESET_ALL} {segment_length} seconds")
+    
+    # Record start time for this video
+    start_time = time.time()
+    
+    try:
+        # Create output directory
+        output_dir = create_output_dir(input_file)
+        
+        # Segment the video
+        segmented_files, timestamp = segment_video(input_file, segment_length, output_dir)
+        
+        # Rescale the segmented videos
+        rescaled_files = rescale_segments(segmented_files, output_dir)
+        
+        # Calculate processing time
+        elapsed_time = time.time() - start_time
+        minutes, seconds = divmod(elapsed_time, 60)
+        
+        # Print the final summary with styling
+        print(f"\n{Fore.GREEN}{Style.BRIGHT}Video processed successfully!{Style.RESET_ALL}")
+        print(f"\n{Fore.CYAN}Summary:{Style.RESET_ALL}")
+        print(f"  {Fore.CYAN}Original segments:{Style.RESET_ALL} {len(segmented_files)}")
+        print(f"  {Fore.CYAN}Rescaled segments:{Style.RESET_ALL} {len(rescaled_files)}")
+        print(f"  {Fore.CYAN}Processing time:{Style.RESET_ALL} {int(minutes)}m {int(seconds)}s")
+        print(f"  {Fore.CYAN}Output location:{Style.RESET_ALL} {os.path.abspath(output_dir)}")
+        print(f"  {Fore.CYAN}Timestamp used:{Style.RESET_ALL} {timestamp}")
+        
+        # Calculate total output size
+        try:
+            original_size = sum(os.path.getsize(f) for f in segmented_files) / (1024*1024)
+            rescaled_size = sum(os.path.getsize(f) for f in rescaled_files) / (1024*1024)
+            total_size = original_size + rescaled_size
+            
+            print(f"  {Fore.CYAN}Original segments size:{Style.RESET_ALL} {original_size:.2f} MB")
+            print(f"  {Fore.CYAN}Rescaled segments size:{Style.RESET_ALL} {rescaled_size:.2f} MB")
+            print(f"  {Fore.CYAN}Total output size:{Style.RESET_ALL} {total_size:.2f} MB")
+            
+            # Calculate compression/expansion ratio
+            ratio = total_size / input_size_mb
+            print(f"  {Fore.CYAN}Size ratio (output/input):{Style.RESET_ALL} {ratio:.2f}x")
+        except:
+            # Skip size calculation if there's an error
+            pass
+        
+        print(f"\n{Fore.BLUE}Files saved in: {Style.BRIGHT}{os.path.abspath(output_dir)}{Style.RESET_ALL}")
+        return True
+        
+    except Exception as e:
+        print_error(f"Error processing video '{input_file}': {e}")
+        return False
+
+def process_batch_directory(directory, segment_length):
+    """Process all MP4 files in a directory"""
+    print(f"\n{Fore.CYAN}{Style.BRIGHT}BATCH DIRECTORY MODE{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{'=' * 40}{Style.RESET_ALL}\n")
+    
+    # Convert directory to absolute path
+    directory = os.path.abspath(directory)
+    
+    # Find all MP4 files
+    mp4_files = find_mp4_files(directory)
+    
+    if not mp4_files:
+        print_warning("No MP4 files found in the specified directory.")
+        return
+    
+    # Create batch output directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    batch_output_dir = f"batch_output_{timestamp}"
+    os.makedirs(batch_output_dir, exist_ok=True)
+    print_success(f"Created batch output directory: {batch_output_dir}")
+    
+    # Process each video
+    total_videos = len(mp4_files)
+    successful_videos = []
+    failed_videos = []
+    batch_start_time = time.time()
+    
+    print(f"\n{Fore.CYAN}Starting batch processing of {total_videos} videos...{Style.RESET_ALL}\n")
+    
+    for i, video_file in enumerate(mp4_files, 1):
+        video_name = os.path.basename(video_file)
+        print(f"\n{Fore.YELLOW}{Style.BRIGHT}[{i}/{total_videos}] Processing: {video_name}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}{'=' * (len(video_name) + 20)}{Style.RESET_ALL}")
+        
+        # Temporarily change working directory context for output
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(batch_output_dir)
+            # Use absolute path for the video file
+            success = process_single_video(video_file, segment_length)
+            if success:
+                successful_videos.append(video_name)
+                print_success(f"[SUCCESS] Completed: {video_name}")
+            else:
+                failed_videos.append(video_name)
+                print_error(f"[FAILED] Failed: {video_name}")
+        finally:
+            os.chdir(original_cwd)
+        
+        # Show progress
+        remaining = total_videos - i
+        if remaining > 0:
+            print(f"\n{Fore.BLUE}Progress: {i}/{total_videos} completed, {remaining} remaining{Style.RESET_ALL}")
+    
+    # Calculate total batch time
+    batch_elapsed_time = time.time() - batch_start_time
+    batch_minutes, batch_seconds = divmod(batch_elapsed_time, 60)
+    
+    # Create batch summary
+    summary_file = os.path.join(batch_output_dir, "batch_summary.txt")
+    with open(summary_file, 'w') as f:
+        f.write("BATCH PROCESSING SUMMARY\n")
+        f.write("=" * 40 + "\n\n")
+        f.write(f"Processing Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Source Directory: {os.path.abspath(directory)}\n")
+        f.write(f"Segment Length: {segment_length} seconds\n")
+        f.write(f"Total Processing Time: {int(batch_minutes)}m {int(batch_seconds)}s\n\n")
+        
+        f.write(f"RESULTS:\n")
+        f.write(f"Total Videos Found: {total_videos}\n")
+        f.write(f"Successfully Processed: {len(successful_videos)}\n")
+        f.write(f"Failed: {len(failed_videos)}\n\n")
+        
+        if successful_videos:
+            f.write("SUCCESSFUL VIDEOS:\n")
+            for video in successful_videos:
+                f.write(f"  [OK] {video}\n")
+            f.write("\n")
+        
+        if failed_videos:
+            f.write("FAILED VIDEOS:\n")
+            for video in failed_videos:
+                f.write(f"  [FAILED] {video}\n")
+            f.write("\n")
+    
+    # Print final batch summary
+    print(f"\n{Fore.GREEN}{Style.BRIGHT}BATCH PROCESSING COMPLETED!{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}Batch Summary:{Style.RESET_ALL}")
+    print(f"  {Fore.CYAN}Total videos found:{Style.RESET_ALL} {total_videos}")
+    print(f"  {Fore.CYAN}Successfully processed:{Style.RESET_ALL} {len(successful_videos)}")
+    print(f"  {Fore.CYAN}Failed:{Style.RESET_ALL} {len(failed_videos)}")
+    print(f"  {Fore.CYAN}Total batch time:{Style.RESET_ALL} {int(batch_minutes)}m {int(batch_seconds)}s")
+    print(f"  {Fore.CYAN}Output directory:{Style.RESET_ALL} {os.path.abspath(batch_output_dir)}")
+    print(f"  {Fore.CYAN}Summary file:{Style.RESET_ALL} {summary_file}")
+    
+    if failed_videos:
+        print(f"\n{Fore.YELLOW}Note: {len(failed_videos)} video(s) failed to process. Check the summary file for details.{Style.RESET_ALL}")
+
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Segment and rescale videos using FFMPEG')
-    parser.add_argument('input_file', help='Path to the input video file')
+    
+    # Create mutually exclusive group for single file vs directory mode
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument('input_file', nargs='?', help='Path to the input video file (single file mode)')
+    input_group.add_argument('--dir', dest='directory', help='Path to directory containing MP4 files (batch mode)')
+    
     parser.add_argument('segment_length', type=int, help='Length of each segment in seconds')
     parser.add_argument('--no-color', action='store_true', help='Disable colored output')
     
@@ -464,67 +651,24 @@ def main():
         print_info("Please install FFMPEG and make sure it's in your PATH before running this script.")
         sys.exit(1)
     
-    # Validate input file
-    if not os.path.isfile(args.input_file):
-        print_error(f"The input file '{args.input_file}' does not exist.")
-        sys.exit(1)
-    
     # Validate segment length
     if args.segment_length <= 0:
         print_error("Segment length must be a positive integer.")
         sys.exit(1)
     
-    # Display input information
-    input_size_mb = os.path.getsize(args.input_file) / (1024*1024)
-    
-    print(f"\n{Fore.CYAN}Input Information:{Style.RESET_ALL}")
-    print(f"  {Fore.CYAN}File:{Style.RESET_ALL} {args.input_file}")
-    print(f"  {Fore.CYAN}Size:{Style.RESET_ALL} {input_size_mb:.2f} MB")
-    print(f"  {Fore.CYAN}Segment length:{Style.RESET_ALL} {args.segment_length} seconds")
-    
-    # Record start time
-    start_time = time.time()
-    
-    # Create output directory
-    output_dir = create_output_dir(args.input_file)
-    
-    # Segment the video
-    segmented_files, timestamp = segment_video(args.input_file, args.segment_length, output_dir)
-    
-    # Rescale the segmented videos
-    rescaled_files = rescale_segments(segmented_files, output_dir)
-    
-    # Calculate processing time
-    elapsed_time = time.time() - start_time
-    minutes, seconds = divmod(elapsed_time, 60)
-    
-    # Print the final summary with styling
-    print(f"\n{Fore.GREEN}{Style.BRIGHT}Process completed successfully!{Style.RESET_ALL}")
-    print(f"\n{Fore.CYAN}Summary:{Style.RESET_ALL}")
-    print(f"  {Fore.CYAN}Original segments:{Style.RESET_ALL} {len(segmented_files)}")
-    print(f"  {Fore.CYAN}Rescaled segments:{Style.RESET_ALL} {len(rescaled_files)}")
-    print(f"  {Fore.CYAN}Processing time:{Style.RESET_ALL} {int(minutes)}m {int(seconds)}s")
-    print(f"  {Fore.CYAN}Output location:{Style.RESET_ALL} {os.path.abspath(output_dir)}")
-    print(f"  {Fore.CYAN}Timestamp used:{Style.RESET_ALL} {timestamp}")
-    
-    # Calculate total output size
-    try:
-        original_size = sum(os.path.getsize(f) for f in segmented_files) / (1024*1024)
-        rescaled_size = sum(os.path.getsize(f) for f in rescaled_files) / (1024*1024)
-        total_size = original_size + rescaled_size
+    # Determine processing mode based on arguments
+    if args.directory:
+        # Batch directory mode
+        process_batch_directory(args.directory, args.segment_length)
+    else:
+        # Single file mode
+        if not args.input_file:
+            print_error("Please provide either a video file or use --dir for batch processing.")
+            sys.exit(1)
         
-        print(f"  {Fore.CYAN}Original segments size:{Style.RESET_ALL} {original_size:.2f} MB")
-        print(f"  {Fore.CYAN}Rescaled segments size:{Style.RESET_ALL} {rescaled_size:.2f} MB")
-        print(f"  {Fore.CYAN}Total output size:{Style.RESET_ALL} {total_size:.2f} MB")
-        
-        # Calculate compression/expansion ratio
-        ratio = total_size / input_size_mb
-        print(f"  {Fore.CYAN}Size ratio (output/input):{Style.RESET_ALL} {ratio:.2f}x")
-    except:
-        # Skip size calculation if there's an error
-        pass
-    
-    print(f"\n{Fore.BLUE}Files saved in: {Style.BRIGHT}{os.path.abspath(output_dir)}{Style.RESET_ALL}")
+        success = process_single_video(args.input_file, args.segment_length)
+        if not success:
+            sys.exit(1)
 
 
 if __name__ == "__main__":
